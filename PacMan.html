@@ -226,7 +226,7 @@ const player = new PacMan({
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-
+ 
 function placeRandomCherriesOnMap(map, numberOfCherries) {
     for (let i = 0; i < numberOfCherries; i++) {
         let randomRow = getRandomInt(1, map.length - 2);
