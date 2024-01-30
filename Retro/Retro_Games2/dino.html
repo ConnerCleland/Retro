@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dino Jump</title>
+    <link rel="stylesheet" href="dino.css">
+</head>
+<body>
+    <h2 class="text">Dino Game 
+        <br>
+    <button onclick="goBack()">Go Back</button>
+    </h2>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const dino = document.getElementById("dino");
+            const cactus = document.getElementById("cactus");
+
+            function jump() {
+                if (dino.classList != "jump") {
+                    dino.classList.add("jump");
+                    setTimeout(function () {
+                        dino.classList.remove("jump");
+                    }, 300);
+                }
+            }
+
+            let isAlive = setInterval(function () {
+                let dinoTop = parseInt(window.getComputedStyle(dino).getPropertyValue("top"));
+                let cactusLeft = parseInt(window.getComputedStyle(cactus).getPropertyValue("left"));
+                
+                if (cactusLeft < 50 && cactusLeft > 0 && dinoTop >= 140) {
+                    gameOver();
+                }
+            }, 90);
+
+            document.addEventListener("keydown", function (event) {
+                jump();
+            });
+        });
+        function goBack() {
+            window.history.back();
+        }
+    </script>
+    
+    <div class="game">
+        <div id="dino"></div>
+        <div id="cactus"></div>
+    </div>
+</body>
+</html>

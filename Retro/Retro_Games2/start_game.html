@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Game</title>
+    <link rel="stylesheet" type="text/css" href="tetris.css">
+</head>
+<body>
+    <button onclick="goBack()">Go Back</button>
+    <div id="game-container">
+        <h1>Tetris Game</h1>
+        <p>Score: <span id="score">0</span></p>
+        <p>Lives: <span id="lives">2</span></p> 
+        <div id="game-over-container"> 
+        <button id="restartButton" class="Restart" style="display: none;">Restart</button></div>
+        <div id="hold-container">
+            <p>Hold:</p>
+            <canvas id="holdCanvas" width="100" height="100" style="border: 1px solid black;"></canvas>
+        </div>
+        <p>Level: <span id="level">1</span></p>
+        <div id="canvas-container">
+            <div id="tetris-grid">
+                <canvas id="tetrisCanvas" width="200" height="350" style="border: 1px solid black;"></canvas>
+            </div>
+        </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded');
+
+            const canvas = document.getElementById('tetrisCanvas');
+            const ctx = canvas.getContext('2d');
+            let gameOver = false;
+            let lives = 2;
+
+            const holdCanvas = document.getElementById('holdCanvas');
+            const holdCtx = holdCanvas.getContext('2d');
+
+            let level = 1;
+            let fallSpeed = 2000;
+
+            let heldBlock = null;
+
+            const blockWidth = canvas.width / 10; 
+            const blockHeight = canvas.height / 20; 
+
+            const grid = {
+                rows: canvas.height / blockHeight,
+                columns: canvas.width / blockWidth,
+            };
+
+            const tetrominos = [
+                [
+                    [1, 1, 1, 1]
+                ],
+                [
+                    [1, 1],
+                    [1, 1],
+                ],
+                [
+                    [1, 1, 1],
+                    [0, 0, 1],
+                ],
+                [
+                    [1, 1, 1],
+                    [1, 0, 0],
+                ],
+                [
+                    [1, 1, 1],
+                    [0, 0, 1],
+                ],
+                [
+                    [1, 1, 1],
+                    [0, 1, 0],
+                ],
+            ];
+
+            const tetrominoColors = ['blue'];
+
+            let activeBlock = null;
+            let score = 0;
+            const gameGrid = Array.from({ length: grid.rows }, () => Array(grid.columns).fill(null));
+
+            function getRandomTetromino() {
+                const randomIndex = Math.floor(Math.random() * tetrominos.length);
+                return tetrominos[randomIndex];
+            }
+
+            function spawnRandomBlock() {
+                if (!isGameOver()) {
+                    const newBlock = {
+                        x: Math.floor(grid.columns / 2) - Math.floor(getRandomTetromino()[0].length / 2),
+                        y: 0,
+                        shape: getRandomTetromino(),
+                        color: tetrominoColors[Math.floor(Math.random() * tetrominoColors.length)],
+                    };
+            
+                    activeBlock = newBlock;
+                    updateScore();
+                }
+            }
+            function updateScore() {
+                const scoreElement = document.getElementById('score');
+                scoreElement.innerHTML = score;
+
+                const livesElement = document.getElementById('lives');
+                livesElement.innerHTML = lives; 
+            
+                if (score >= 50 * level) {
+                    level++;
+                    fallSpeed -= 50;
+                    updateFallSpeed();
+                }
+            
+                const levelElement = document.getElementById('level');
+                levelElement.innerHTML = level;
+            }
+            
+            function updateFallSpeed() {
+                clearTimeout(gameUpdateTimeout);
+                updateGame();
+            }
+
+            function drawBlock(x, y, color, borderWidth = 1, context = ctx) {
+                context.fillStyle = color;
+                context.fillRect(x * blockWidth, y * blockHeight, blockWidth, blockHeight);
+                context.strokeStyle = 'white';
+                context.lineWidth = borderWidth;
+                context.strokeRect(x * blockWidth, y * blockHeight, blockWidth, blockHeight);
+            }
+            const restartButton = document.getElementById('restartButton');
+            restartButton.addEventListener('click', function restartClickHandler() {
+                restartButton.style.display = 'none';
+                restartGame(); 
+            });
+            function drawGameOver() {
+                const gameOverText = lives > 0 ? `You have ${lives} lives left` : "Game Over";
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = lives > 0 ? 'yellow' : 'red'; 
+                ctx.font = '35px Arial';
+                ctx.fillText(gameOverText, canvas.width / 2 - ctx.measureText(gameOverText).width / 2, canvas.height / 2);
+                restartButton.style.display = 'block';
+                restartButton.style.position = 'absolute';
+                restartButton.style.left = canvas.width / 2 - restartButton.offsetWidth / 2 + 'px';
+                restartButton.style.top = canvas.height / 2 + 80 + 'px';
+                restartButton.style.zIndex = '1';
+            }
+            
+            function restartGame() {
+                gameOver = false;
+                gameGrid.forEach(row => row.fill(null));
+                score = 0;
+                lives = 2; 
+                level = 1;
+                fallSpeed = 2000;
+                updateScore();
+                spawnRandomBlock();
+                updateGame();
+                clearHoldCanvas(); 
+                const restartButton = document.getElementById('restartButton');
+                restartButton.style.display = 'none';
+            }
+            
+            function clearHoldCanvas() {
+                const holdCanvas = document.getElementById('holdCanvas');
+                const holdCtx = holdCanvas.getContext('2d');
+                holdCtx.clearRect(0, 0, holdCanvas.width, holdCanvas.height);
+            }
+            
+            function drawGrid() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+                for (let row = 0; row < grid.rows; row++) {
+                    for (let col = 0; col < grid.columns; col++) {
+                        const blockColor = gameGrid[row][col] ? 'red' : 'gray';
+                        drawBlock(col, row, blockColor);
+                    }
+                }
+            
+                if (activeBlock) {
+                    for (let row = 0; row < activeBlock.shape.length; row++) {
+                        for (let col = 0; col < activeBlock.shape[row].length; col++) {
+                            if (activeBlock.shape[row][col]) {
+                                drawBlock(activeBlock.x + col, activeBlock.y + row, activeBlock.color);
+                                drawBlock(activeBlock.x + col, activeBlock.y + row, 'blue', 2);
+                            }
+                        }
+                    }
+                }
+                if (activeBlock) {
+                    for (let row = 0; row < activeBlock.shape.length; row++) {
+                        for (let col = 0; col < activeBlock.shape[row].length; col++) {
+                            if (activeBlock.shape[row][col]) {
+                                drawBlock(activeBlock.x + col, activeBlock.y + row, 'blue', 2);
+                            }
+                        }
+                    }
+                }
+            }
+
+            function moveBlock(direction) {
+                if (!activeBlock) {
+                    activeBlock = { x: 0, y: 0, shape: getRandomTetromino() };
+                }
+
+                switch (direction) {
+                    case 'ArrowRight':
+                        if (activeBlock.x < grid.columns - 1 && !checkCollision(1, 0)) {
+                            activeBlock.x += 1;
+                        }
+                        break;
+                    case 'ArrowLeft':
+                        if (activeBlock.x > 0 && !checkCollision(-1, 0)) {
+                            activeBlock.x -= 1;
+                        }
+                        break;
+                    case 'ArrowDown':
+                        if (canMoveDown() && !checkCollision(0, 1)) {
+                            activeBlock.y += 1;
+                        } else {
+                            lockBlock();
+                        }
+                        break;
+                    case 'ArrowUp':
+                        rotateBlock();
+                        break;
+                }
+
+                drawGrid();
+            }
+
+            function canMoveDown() {
+                if (!activeBlock) {
+                    return false;
+                }
+                return activeBlock.y < grid.rows - 1;
+            }
+
+            function checkCollision(dx, dy) {
+                if (!activeBlock) {
+                    return false;
+                }
+
+                for (let row = 0; row < activeBlock.shape.length; row++) {
+                    for (let col = 0; col < activeBlock.shape[row].length; col++) {
+                        if (activeBlock.shape[row][col]) {
+                            const newX = activeBlock.x + col + dx;
+                            const newY = activeBlock.y + row + dy;
+
+                            if (newX < 0 || newX >= grid.columns || newY < 0 || newY >= grid.rows || gameGrid[newY][newX]) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                return false;
+            }
+
+            function rotateBlock() {
+                if (!activeBlock) {
+                    return;
+                }
+
+                const newShape = activeBlock.shape[0].map((_, i) => activeBlock.shape.map(row => row[i])).reverse();
+
+                if (!checkCollision(0, 0, newShape)) {
+                    activeBlock.shape = newShape;
+                }
+            }
+
+            function lockBlock() {
+                if (activeBlock) {
+                    for (let row = 0; row < activeBlock.shape.length; row++) {
+                        for (let col = 0; col < activeBlock.shape[row].length; col++) {
+                            if (activeBlock.shape[row][col]) {
+                                gameGrid[activeBlock.y + row][activeBlock.x + col] = true;
+                            }
+                        }
+                    }
+
+                    clearCompletedRows();
+
+                    spawnRandomBlock();
+                }
+            }
+
+            function clearCompletedRows() {
+                const completedRows = [];
+
+                for (let row = grid.rows - 1; row >= 0; row--) {
+                    if (isRowComplete(row)) {
+                        completedRows.push(row);
+                        score += 10;
+                    }
+                }
+
+                completedRows.forEach((row) => {
+                    gameGrid.splice(row, 1);
+                    gameGrid.unshift(Array(grid.columns).fill(null));
+                });
+
+                if (completedRows.length > 0) {
+                    updateScore();
+                    return true;
+                }
+
+                return false;
+            }
+
+            function isRowComplete(row) {
+                return gameGrid[row].every((cell) => cell);
+            }
+
+            function updateGame() {
+                if (gameOver) {
+                    drawGameOver();
+                    return;
+                }
+            
+                if (canMoveDown() && !checkCollision(0, 1)) {
+                    activeBlock.y += 1;
+                } else {
+                    while (clearCompletedRows()) {}
+                    lockBlock();
+            
+                    if (isGameOver()) {
+                        console.log('Game over!');
+                        gameOver = true;
+                        drawGameOver();  
+                        return;
+                    } else {
+                        spawnRandomBlock();
+                    }
+                }
+                drawGrid();
+            
+                gameUpdateTimeout = setTimeout(() => {
+                    while (clearCompletedRows()) {}
+                    updateGame();
+                }, fallSpeed);
+            }
+
+            updateGame();
+
+            document.addEventListener('keydown', (event) => {
+                console.log('Key pressed:', event.key);
+            
+                if (gameOver) {
+                    return; 
+                }
+            
+                const directionKeys = ['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'];
+                if (directionKeys.includes(event.key)) {
+                    moveBlock(event.key);
+                } else if (event.key === ' ') {
+                    console.log('Space bar pressed');
+                    lockBlockDelayed();
+                } else if (event.key === 'c' || event.key === 'C') {
+                    holdBlock();
+                }
+            });
+
+            function lockBlockDelayed() {
+                while (canMoveDown() && !checkCollision(0, 1)) {
+                    activeBlock.y += 1;
+                }
+                lockBlock();
+                drawGrid();
+            }
+
+            function HoldCanvas() {
+                holdCtx.clearRect(0, 0, holdCanvas.width, holdCanvas.height);
+            
+                const gridSize = 4; 
+                const boxSize = Math.min(holdCanvas.width, holdCanvas.height);
+                const squareSize = boxSize / gridSize;
+            
+                const offsetX = (holdCanvas.width - boxSize) / 2;
+                const offsetY = (holdCanvas.height - boxSize) / 2;
+        
+            }
+            function isGameOver() {
+                if (!activeBlock) {
+                    return false;
+                }
+            
+                for (let col = 0; col < activeBlock.shape[0].length; col++) {
+                    if (gameGrid[0][activeBlock.x + col]) {
+                        lives -= 1;
+            
+                        if (lives <= 0) {
+                            lives = 0; 
+                            return true; 
+                        }
+            
+                        gameGrid.forEach(row => row.fill(null));
+                        return false;
+                    }
+                }
+            
+                return false;
+            }
+            
+            
+        
+            function holdBlock() {
+                if (!heldBlock) {
+                    heldBlock = { ...activeBlock, y: 0 };
+                    spawnRandomBlock();
+                } else {
+                    const tempBlock = { ...activeBlock };
+                    activeBlock = { ...heldBlock, y: 0 };
+                    heldBlock = { ...tempBlock };
+                }
+            
+                holdCtx.clearRect(0, 0, holdCanvas.width, holdCanvas.height);
+            
+                const centerX = Math.floor(holdCanvas.width / (2 * blockWidth));
+                const centerY = Math.floor(holdCanvas.height / (2 * blockHeight));
+            
+                const startX = centerX - Math.floor(heldBlock.shape[0].length / 2);
+                const startY = centerY - Math.floor(heldBlock.shape.length / 2);
+            
+                for (let row = 0; row < heldBlock.shape.length; row++) {
+                    for (let col = 0; col < heldBlock.shape[row].length; col++) {
+                        if (heldBlock.shape[row][col]) {
+                            const drawX = startX + col;
+                            const drawY = startY + row;
+            
+                            if (drawX >= 0 && drawX < holdCanvas.width / blockWidth && drawY >= 0 && drawY < holdCanvas.height / blockHeight) {
+                                const blockColor = heldBlock.color;
+                                holdCtx.fillStyle = blockColor;
+                                holdCtx.fillRect(drawX * blockWidth, drawY * blockHeight, blockWidth, blockHeight);
+            
+                                holdCtx.strokeStyle = 'white';
+                                holdCtx.lineWidth = 1;
+                                holdCtx.strokeRect(drawX * blockWidth, drawY * blockHeight, blockWidth, blockHeight);
+                            }
+                        }
+                    }
+                }
+                drawGrid();
+            }
+
+            spawnRandomBlock();
+
+            updateGame();
+            HoldCanvas();
+        });
+        function goBack() {
+            window.history.back();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #000;
+    color: #fff;
+    flex-direction: column; 
+}
+
+canvas {
+    border: 1px solid #fff;
+}
+
+#pongCanvas {
+    background-color: #000;
+}
+
+#pongCanvas .paddle {
+    background-color: #fff;
+}
+
+#pongCanvas .ball {
+    background-color: #fff;
+}
+
+#pongCanvas .score {
+    font: 20px Arial;
+}
+
+.text {
+    text-align: center;
+}
